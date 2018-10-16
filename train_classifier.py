@@ -5,9 +5,9 @@ import os
 from models import Classifier
 import tools
 
-model_path = './data/classifier'
-lr_init = 0.001
-batch_size = 64
+model_path = './data/model/classifier'
+lr_init = 0.0001
+batch_size = 32
 epoch = 2000
 iter = 10
 

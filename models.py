@@ -8,7 +8,7 @@ def conv(x, num_channel, kernel_size, stride=1, padding='SAME'):
     net = slim.conv2d(x, num_channel, kernel_size=kernel_size, stride=stride, padding=padding, activation_fn=None)
     net = layers.batch_norm(net, is_training=False, trainable=False)
     net = tf.nn.relu(net)
-    net = tf.nn.dropout(net, 0.5)
+    net = tf.nn.dropout(net, 0.8)
     return net
 
 def deconv(x, num_channel, kernel_size, stride=2, padding='SAME'):
@@ -16,7 +16,7 @@ def deconv(x, num_channel, kernel_size, stride=2, padding='SAME'):
                                 padding=padding, activation_fn=None)
     net = layers.batch_norm(net, is_training=False, trainable=False)
     net = tf.nn.relu(net)
-    net = tf.nn.dropout(net, 0.5)
+    net = tf.nn.dropout(net, 0.8)
     return net
 
 def Encoder(input):
@@ -71,12 +71,12 @@ def Encoder(input):
 
     return net
 
-def Classifier(input):
+def Classifier(input, reuse=False):
     '''
     :param input: images with 224*224*3 size
     :return: vector of a feature layer with 1024 dimensions and possibility of seal or noseal picture
     '''
-    with tf.variable_scope('Classifier'):
+    with tf.variable_scope('Classifier', reuse=reuse):
         with tf.variable_scope('conv_1'):
             net = conv(input, 64, [3, 3])
             net = slim.max_pool2d(net, kernel_size=[2, 2], stride=2)
@@ -129,6 +129,7 @@ def Generative(input):
             net = layers.batch_norm(net, is_training=False, trainable=False)
             net = tf.nn.relu(net)
             net = tf.nn.dropout(net, 0.5)
+            net = tf.reshape(net, [-1, 7, 7, 256])
 
         with tf.variable_scope('conv_1'):
             net = deconv(net, 256, [3, 3])
@@ -150,32 +151,32 @@ def Generative(input):
 
     return net
 
-def Discriminative(input):
+def Discriminative(input, reuse=False):
     '''
     :param input:images with 224*224*3 size
     :return: vector of a feature layer with 1024 dimnesions and possibility of real picture
     '''
-    with tf.variable_scope('Discriminative'):
+    with tf.variable_scope('Discriminative', reuse=reuse):
         with tf.variable_scope('conv_1'):
-            net = conv(input, 8, [3, 3], stride=2)
+            net = conv(input, 128, [3, 3], stride=2)
 
         with tf.variable_scope('conv_2'):
-            net = conv(net, 16, [3, 3], stride=2)
+            net = conv(net, 256, [3, 3], stride=2)
 
         with tf.variable_scope('conv_3'):
-            net = conv(net, 32, [3, 3], stride=2)
+            net = conv(net, 512, [3, 3], stride=2)
 
         with tf.variable_scope('conv_4'):
-            net = conv(net, 64, [3, 3], stride=2)
+            net = conv(net, 512, [3, 3], stride=2)
 
         with tf.variable_scope('FC_1'):
             net = slim.flatten(net)
             net = slim.fully_connected(net, 1024)
             net = layers.batch_norm(net, is_training=False, trainable=False)
             feature = tf.nn.relu(net)
-            net = tf.nn.dropout(feature)
+            net = tf.nn.dropout(feature, 0.5)
 
         with tf.variable_scope('FC_2'):
-            net = slim.fully_connected(net, 1, activation_fn=tf.nn.tanh)
+            net = slim.fully_connected(net, 2, activation_fn=None)
 
     return feature, net
