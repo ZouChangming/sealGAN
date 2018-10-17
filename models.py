@@ -151,6 +151,50 @@ def Generative(input):
 
     return net
 
+def Generative2(input):
+    '''
+    :param input:
+    :return:
+    '''
+    with tf.variable_scope('Generative'):
+        with tf.variable_scope('conv_1'):
+            net = conv(input, 64, [3, 3])
+            net = slim.max_pool2d(net, kernel_size=[2, 2], stride=2)
+
+        with tf.variable_scope('conv_2'):
+            net = conv(net, 128, [3, 3])
+            net = slim.max_pool2d(net, kernel_size=[2, 2], stride=2)
+
+        with tf.variable_scope('conv_3'):
+            net = conv(net, 256, [3, 3])
+            net = conv(net, 256, [3, 3])
+            net = slim.max_pool2d(net, kernel_size=[2, 2], stride=2)
+
+        with tf.variable_scope('refine'):
+            with tf.variable_scope('conv_1'):
+                net = conv(net, 256, [3, 3])
+            with tf.variable_scope('conv_2'):
+                net = conv(net, 512, [3, 3])
+            with tf.variable_scope('conv_3'):
+                net = conv(net, 512, [3, 3])
+            with tf.variable_scope('conv_4'):
+                net = conv(net, 256, [3, 3])
+
+        with tf.variable_scope('deconv_1'):
+            net = deconv(net, 256, [3, 3])
+
+        with tf.variable_scope('deconv_2'):
+            net = deconv(net, 256, [3, 3])
+
+        with tf.variable_scope('deconv_3'):
+            net = deconv(net, 128, [5, 5])
+
+        with tf.variable_scope('conv_4'):
+            net = slim.conv2d(net, 3, kernel_size=[5, 5], stride=1, padding='SAME', activation_fn=tf.nn.tanh)
+
+    return net
+
+
 def Discriminative(input, reuse=False):
     '''
     :param input:images with 224*224*3 size

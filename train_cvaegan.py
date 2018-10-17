@@ -2,7 +2,7 @@
 
 import os
 import tensorflow as tf
-from models import Generative, Discriminative, Encoder, Classifier
+from models import Generative, Discriminative, Encoder, Classifier, Generative2
 import tools
 
 learning_rate = 0.000001
@@ -17,14 +17,14 @@ def train():
     seal_label = tf.placeholder(shape=(None, 2), dtype=tf.float32)
     noseal_label = tf.placeholder(shape=(None, 2), dtype=tf.float32)
 
-    z = Encoder(seal)
-    fake = Generative(z)
+    # z = Encoder(seal)
+    fake = Generative2(seal)
 
     feature_fake, logits_fake = Discriminative(fake)
     feature_real_seal, logits_real_seal = Discriminative(seal, reuse=True)
     feature_real_noseal, logits_real_noseal = Discriminative(noseal, reuse=True)
 
-    feature_seal, _ = Classifier(fake)
+    feature_fake_noseal, logits_fake_noseal = Classifier(fake)
     feature_noseal, logits_noseal = Classifier(noseal, reuse=True)
     _, logits_seal = Classifier(seal, reuse=True)
 
@@ -33,21 +33,22 @@ def train():
             tf.nn.softmax_cross_entropy_with_logits(labels=noseal_label, logits=logits_fake))
 
     loss_C = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=seal_label, logits=logits_seal) + \
-                tf.nn.softmax_cross_entropy_with_logits(labels=noseal_label, logits=logits_noseal))
+                tf.nn.softmax_cross_entropy_with_logits(labels=noseal_label, logits=logits_noseal) + \
+                tf.nn.softmax_cross_entropy_with_logits(labels=seal_label, logits=logits_fake_noseal))
 
     loss_GD = tools.get_loss_GD(feature_real_noseal, feature_real_seal, feature_fake)
 
-    loss_GC = tools.get_loss_GC(feature_noseal, feature_seal)
+    loss_GC = tools.get_loss_GC(feature_noseal, feature_fake_noseal)
 
     loss_G = tools.get_loss_G(seal, fake)
 
-    loss_KL = tools.get_loss_KL(z)
+    # loss_KL = tools.get_loss_KL(z)
 
     all_var = tf.trainable_variables()
 
     var_C = [var for var in all_var if var.name.startswith('Classifier')]
 
-    var_E = [var for var in all_var if var.name.startswith('Encoder')]
+    # var_E = [var for var in all_var if var.name.startswith('Encoder')]
 
     var_G = [var for var in all_var if var.name.startswith('Generative')]
 
@@ -57,9 +58,9 @@ def train():
 
     opt_C = optimizer.minimize(loss_C, var_list=var_C)
 
-    opt_E = optimizer.minimize(3*loss_KL + loss_G, var_list=var_E)
+    # opt_E = optimizer.minimize(3*loss_KL + loss_G, var_list=var_E)
 
-    opt_G = optimizer.minimize(loss_G + 0.01*loss_GC + 0.01*loss_GD, var_list=var_G)
+    opt_G = optimizer.minimize(0.001*loss_G + loss_GC + loss_GD, var_list=var_G)
 
     opt_D = optimizer.minimize(loss_D, var_list=var_D)
 
@@ -83,17 +84,17 @@ def train():
             for j in range(iter):
                 seal_img, seal_labels = tools.get_seal_set(batch_size/2, i*iter+j)
                 noseal_img, noseal_labels = tools.get_noseal_set(batch_size/2, i*iter+j)
-                sess.run(opt_E, feed_dict={seal:seal_img})
+                # sess.run(opt_E, feed_dict={seal:seal_img})
                 sess.run(opt_G, feed_dict={seal:seal_img, seal_label:seal_labels, noseal:noseal_img,
                                            noseal_label:noseal_labels})
                 sess.run(opt_D, feed_dict={seal:seal_img, seal_label:seal_labels, noseal:noseal_img,
                                            noseal_label:noseal_labels})
                 sess.run(opt_C, feed_dict={seal:seal_img, seal_label:seal_labels, noseal:noseal_img,
                                            noseal_label:noseal_labels})
-            l_kl, l_c, l_g, l_gc, l_gd, l_d, a = sess.run([loss_KL, loss_C, loss_G, loss_GC, loss_GD, loss_D, accuracy],
+            l_c, l_g, l_gc, l_gd, l_d, a = sess.run([loss_C, loss_G, loss_GC, loss_GD, loss_D, accuracy],
                                                           feed_dict={seal:seal_img, seal_label:seal_labels,
                                                                      noseal:noseal_img,noseal_label:noseal_labels})
-            print 'Epoch ' + str(i) + ' : L_KL = ' + str(l_kl) + ' ; L_C = ' + str(l_c) + ' ; L_G = ' + str(l_g) + \
+            print 'Epoch ' + str(i) + ' : L_C = ' + str(l_c) + ' ; L_G = ' + str(l_g) + \
                 ' ; L_GC = ' + str(l_gc) + ' ; L_GD = ' + str(l_gd) + ' ; L_D = ' + str(l_d) + ' ; acc = ' + str(a)
             if i % 10 == 0:
                 saver.save(sess, os.path.join(model_path, 'model.ckpt'))
