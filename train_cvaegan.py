@@ -5,7 +5,7 @@ import tensorflow as tf
 from models import Generative, Discriminative, Encoder, Classifier, Generative2
 import tools
 
-learning_rate = 0.0002
+learning_rate = 0.000005
 batch_size = 16
 model_path = './data/model/GAN'
 epoch = 10000
@@ -59,9 +59,9 @@ def train():
 
     # opt_E = optimizer.minimize(3*loss_KL + loss_G, var_list=var_E)
 
-    opt_G = optimizer.minimize(10*loss_G + 0.1*loss_GC + 0.1*loss_GD, var_list=var_G)
+    opt_G = optimizer.minimize(5*loss_G + 0.1*loss_GC + loss_GD, var_list=var_G)
 
-    opt_D = optimizer.minimize(0.1*loss_D, var_list=var_D)
+    opt_D = optimizer.minimize(loss_D, var_list=var_D)
 
     accuracy = 0.5*(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(tf.nn.softmax(logits_seal), 1),
                                                     tf.argmax(tf.nn.softmax(seal_label), 1)), tf.float32)) + \

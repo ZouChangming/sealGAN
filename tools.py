@@ -98,3 +98,20 @@ def save(image, epoch):
     image = (image + 1.0) / 2.0 * 255.0
     path = './data/sample/' + str(epoch) + '.jpg'
     cv2.imwrite(path, image)
+
+def check_source():
+    path = './data/source/noseal'
+    img_list = os.listdir(path)
+    for name in img_list:
+        print os.path.join(path, name)
+        img = cv2.imread(os.path.join(path, name))
+        img = cv2.resize(img, (224, 224))
+    path = './data/source/seal'
+    img_list = os.listdir(path)
+    for name in img_list:
+        print os.path.join(path, name)
+        img = cv2.imread(os.path.join(path, name))
+        img = cv2.resize(img, (224, 224))
+
+if __name__ == '__main__':
+    check_source()
