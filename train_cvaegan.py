@@ -2,10 +2,10 @@
 
 import os
 import tensorflow as tf
-from models import Generative, Discriminative, Encoder, Classifier, Generative2
+from models import Generative, Discriminative, Encoder, Classifier, Generative2, Discriminative2
 import tools
 
-learning_rate = 0.000005
+learning_rate = 0.00002
 batch_size = 16
 model_path = './data/model/GAN'
 epoch = 10000
@@ -16,13 +16,14 @@ def train():
     noseal = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32)
     seal_label = tf.placeholder(shape=(None, 2), dtype=tf.float32)
     noseal_label = tf.placeholder(shape=(None, 2), dtype=tf.float32)
+    global_step = tf.Variable(0)
 
     # z = Encoder(seal)
     fake = Generative2(seal)
 
-    logits_fake = Discriminative(fake)
-    logits_real_seal = Discriminative(seal, reuse=True)
-    logits_real_noseal = Discriminative(noseal, reuse=True)
+    logits_fake = Discriminative2(fake)
+    logits_real_seal = Discriminative2(seal, reuse=True)
+    logits_real_noseal = Discriminative2(noseal, reuse=True)
 
     _, logits_fake_noseal = Classifier(fake)
     _, logits_noseal = Classifier(noseal, reuse=True)
@@ -33,7 +34,8 @@ def train():
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.zeros_like(logits_fake), logits=logits_fake))
 
     loss_C = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=seal_label, logits=logits_seal) + \
-                tf.nn.softmax_cross_entropy_with_logits(labels=noseal_label, logits=logits_noseal))
+                tf.nn.softmax_cross_entropy_with_logits(labels=noseal_label, logits=logits_noseal) + \
+                0.5*tf.nn.softmax_cross_entropy_with_logits(labels=seal_label, logits=logits_fake_noseal))
 
     loss_GD = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(logits_fake), logits=logits_fake))
 
@@ -53,13 +55,16 @@ def train():
 
     var_D = [var for var in all_var if var.name.startswith('Discriminative')]
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.5)
+    lr = tf.train.exponential_decay(learning_rate=learning_rate, global_step=global_step, decay_rate=0.5,
+                                    decay_steps=5000, staircase=True)
 
-    opt_C = optimizer.minimize(loss_C, var_list=var_C)
+    optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=0.5)
+
+    opt_C = optimizer.minimize(loss_C, var_list=var_C, global_step=global_step)
 
     # opt_E = optimizer.minimize(3*loss_KL + loss_G, var_list=var_E)
 
-    opt_G = optimizer.minimize(5*loss_G + 0.1*loss_GC + loss_GD, var_list=var_G)
+    opt_G = optimizer.minimize(20*loss_G + 0.1*loss_GC + loss_GD, var_list=var_G)
 
     opt_D = optimizer.minimize(loss_D, var_list=var_D)
 
@@ -93,11 +98,11 @@ def train():
             # tmp = sess.run(logits_fake, feed_dict={seal:seal_img, seal_label:seal_labels,
             #                                         noseal:noseal_img,noseal_label:noseal_labels})
             # print tmp
-            l_c, l_g, l_gc, l_gd, l_d, a = sess.run([loss_C, loss_G, loss_GC, loss_GD, loss_D, accuracy],
+            l_c, l_g, l_gc, l_gd, l_d, a, l = sess.run([loss_C, loss_G, loss_GC, loss_GD, loss_D, accuracy, lr],
                                                           feed_dict={seal:seal_img, seal_label:seal_labels,
                                                                      noseal:noseal_img,noseal_label:noseal_labels})
-            print 'Epoch ' + str(i) + ' : L_C = ' + str(l_c) + ' ; L_G = ' + str(l_g) + \
-                ' ; L_GC = ' + str(l_gc) + ' ; L_GD = ' + str(l_gd) + ' ; L_D = ' + str(l_d) + ' ; acc = ' + str(a)
+            print 'Epoch ' + str(i) + ' : L_C = ' + str(l_c) + ' ; L_G = ' + str(l_g) + ' ; L_GC = ' + str(l_gc) + \
+                  ' ; L_GD = ' + str(l_gd) + ' ; L_D = ' + str(l_d) + ' ; acc = ' + str(a) + ' ; lr = ' + str(l)
             if i % 10 == 0:
                 saver.save(sess, os.path.join(model_path, 'model.ckpt'))
                 seal_img = tools.get_test()
